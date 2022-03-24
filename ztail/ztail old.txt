@@ -1,0 +1,121 @@
+// package main
+
+import (
+	"fmt"
+	"os"
+)
+
+func isValidAtoi(s string) int64 {
+	var res int64
+	s1 := s
+	if len(s) == 0 {
+		return 0
+	} else {
+		if s[0] == '+' || s[0] == '-' {
+			s = s[1:]
+		}
+		for _, ch := range s {
+			if ch >= 48 && ch <= 57 {
+				ch = ch - 48
+				res = res*10 + int64(ch)
+				if res < 0 {
+					break
+				}
+			} else {
+				return 0
+			}
+		}
+		if s1[0] == '-' {
+			res = -res
+		}
+
+		if (s1[0] == '+' || (s1[0] >= '0' && s1[0] <= '9')) && res < 0 {
+			return 9223372036854775807
+		} else if s1[0] == '-' && res > 0 {
+			return -9223372036854775808
+		}
+	}
+	return res
+}
+
+func main() {
+	if len(os.Args) > 2 {
+		var output, exitstcount, length int64
+		args := os.Args[1:]
+		var filenames []string
+		isVaild := true
+		isThereArg := true
+
+		// проверка на случай, есть ли у '-с' числовой аргумент
+		if args[len(args)-1] == "-c" {
+			fmt.Printf("tail: option requires an argument -- '%v'\n", args[len(args)-1][1:])
+			fmt.Printf("Try 'tail --help' for more information.\n")
+			isThereArg = false
+			return
+		}
+
+		for i := 0; i < len(args); i++ {
+			// проверяем аргумент идущий после -с (если это число, присваеваем число переменной length)
+			// если нет, выводим ошибку
+			if args[i] == "-c" {
+				if i != len(args)-1 {
+					if args[i+1] == "0" {
+						return
+					}
+					if isValidAtoi(args[i+1]) != 0 {
+						if args[i+1][0] == '-' {
+							args[i+1] = args[i+1][1:]
+						}
+						length = isValidAtoi(args[i+1])
+						i = i + 1
+					} else {
+						fmt.Printf("tail: invalid number of bytes: '%v'\n", args[i+1])
+						isVaild = false
+						break
+					}
+				}
+			} else {
+				// добавляем в новый срез все аргументы кроме -с и идущего после числового аргумента
+				filenames = append(filenames, args[i])
+			}
+		}
+		// продолжаем программу если имеем аргумент -с и валидное число
+		if isVaild == true && isThereArg == true {
+			// считываем новый срез
+			for i := range filenames {
+				file, err := os.Open(filenames[i])
+				if err != nil {
+					exitstcount++
+					fmt.Printf("tail: cannot open '%v' for reading: No such file or directory\n", filenames[i])
+					continue
+				}
+				defer file.Close()
+
+				// получаем размер файла
+				stat, _ := os.Stat(string(filenames[i]))
+				size := stat.Size()
+
+				if size < length {
+					length = size
+					output = 0
+				} else {
+					output = size - length
+				}
+				var arr []byte
+				for i := 0; i < int(length); i++ {
+					arr = append(arr, 48)
+				}
+				file.ReadAt(arr, output)
+
+				if len(filenames) > 1 {
+					fmt.Printf("==> %v <==\n%v", filenames[i], string(arr))
+				} else {
+					fmt.Printf(string(arr))
+				}
+			}
+			if exitstcount > 0 {
+				return
+			}
+		}
+	}
+}
